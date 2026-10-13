@@ -1,3 +1,5 @@
 This model is licensed under the Fish Audio Research License, Copyright © 39 AI, INC. All Rights Reserved.
 
 Built with Fish Audio. Source: https://github.com/fishaudio/fish-speech (commit bdd39477922a89b904c6f2c7397f2a9bbcc60a0c)
+
+Ready-made voices (scripts/setup_voices.py) are built from LibriSpeech (https://www.openslr.org/12), licensed CC BY 4.0, by Vassil Panayotov, Guoguo Chen, Daniel Povey and Sanjeev Khudanpur.

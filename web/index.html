@@ -5,183 +5,610 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fish Studio</title>
 <style>
-  :root { --bg:#f7f7f8; --card:#fff; --text:#18181b; --muted:#71717a; --border:#e4e4e7; --accent:#2563eb; --err:#dc2626; --ok:#16a34a; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#0b0b0d; --card:#17171a; --text:#f4f4f5; --muted:#a1a1aa; --border:#2a2a30; --accent:#60a5fa; --err:#f87171; --ok:#4ade80; }
+  :root {
+    --bg:#fafafa; --panel:#ffffff; --text:#111113; --muted:#6b6b76; --faint:#9a9aa4;
+    --border:#e7e7ea; --hover:#f3f3f5; --accent:#111113; --accent-text:#ffffff;
+    --ok:#16a34a; --warn:#d97706; --err:#dc2626; --ring:#c7c7ce;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
   }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-  main { max-width:760px; margin:0 auto; padding:24px 16px 48px; }
-  h1 { font-size:24px; margin:0 0 4px; }
-  .sub { color:var(--muted); margin:0 0 20px; }
-  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
-  .card h2 { font-size:15px; margin:0 0 10px; }
-  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
-  input[type=text], input[type=url], textarea { width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
-  textarea { min-height:160px; resize:vertical; }
-  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  button { padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
-  button.secondary { background:transparent; color:var(--text); border:1px solid var(--border); font-weight:500; }
-  button:disabled { opacity:.5; cursor:default; }
-  .status { font-size:13px; margin-top:8px; color:var(--muted); }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0d0d0f; --panel:#151518; --text:#f2f2f4; --muted:#a0a0aa; --faint:#6f6f7a;
+      --border:#26262c; --hover:#1d1d22; --accent:#f2f2f4; --accent-text:#111113;
+      --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --ring:#3a3a42;
+      --shadow:none;
+    }
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  button { font:inherit; color:inherit; cursor:pointer; }
+  input, textarea { font:inherit; color:inherit; }
+  .app { display:grid; grid-template-columns:232px 1fr; height:100vh; }
+
+  /* Sidebar */
+  .sidebar { border-right:1px solid var(--border); padding:16px 12px; display:flex; flex-direction:column; gap:4px; background:var(--panel); }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; padding:4px 8px 16px; }
+  .logo { width:28px; height:28px; border-radius:8px; background:var(--accent); color:var(--accent-text); display:grid; place-items:center; font-size:14px; }
+  .nav { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; border:0; background:none; text-align:left; color:var(--muted); }
+  .nav:hover { background:var(--hover); color:var(--text); }
+  .nav.active { background:var(--hover); color:var(--text); font-weight:600; }
+  .nav svg { width:18px; height:18px; flex:none; }
+  .sidebar .spacer { flex:1; }
+  .conn { border:1px solid var(--border); border-radius:10px; padding:10px; font-size:12px; color:var(--muted); background:none; text-align:left; }
+  .conn:hover { background:var(--hover); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--faint); margin-right:6px; vertical-align:middle; }
+  .dot.ok { background:var(--ok); } .dot.err { background:var(--err); } .dot.wait { background:var(--warn); }
+
+  /* Main */
+  .main { overflow:auto; display:flex; flex-direction:column; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:16px 28px; border-bottom:1px solid var(--border); background:var(--panel); position:sticky; top:0; z-index:5; }
+  .topbar h1 { font-size:17px; margin:0; }
+  .view { display:none; padding:24px 28px 120px; }
+  .view.active { display:block; }
+  .muted { color:var(--muted); }
+  .small { font-size:12px; }
+
+  /* TTS layout */
+  .tts { display:grid; grid-template-columns:1fr 320px; gap:24px; align-items:start; }
+  .editor { background:var(--panel); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); display:flex; flex-direction:column; min-height:420px; }
+  .editor textarea { flex:1; border:0; outline:none; resize:none; background:transparent; padding:22px; font-size:16px; line-height:1.7; min-height:340px; }
+  .editor-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .btn { border:1px solid var(--border); background:var(--panel); padding:8px 14px; border-radius:999px; font-weight:500; }
+  .btn:hover { background:var(--hover); }
+  .btn.primary { background:var(--accent); color:var(--accent-text); border-color:var(--accent); font-weight:600; padding:10px 20px; }
+  .btn.primary:hover { opacity:.9; }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .btn.sm { padding:5px 10px; font-size:12px; }
+
+  .side { display:flex; flex-direction:column; gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:var(--shadow); }
+  .card h3 { margin:0 0 4px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .voice-pick { display:flex; align-items:center; gap:12px; width:100%; border:1px solid var(--border); border-radius:12px; padding:10px; background:none; text-align:left; margin-top:8px; }
+  .voice-pick:hover { background:var(--hover); }
+  .avatar { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; font-weight:700; color:#fff; flex:none; }
+  .grow { flex:1; min-width:0; }
+  .ellipsis { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .setting { margin-top:14px; }
+  .setting-head { display:flex; justify-content:space-between; font-weight:500; }
+  .setting input[type=range] { width:100%; accent-color:var(--text); margin:6px 0 0; }
+  .setting .ends { display:flex; justify-content:space-between; font-size:11px; color:var(--faint); }
+
+  /* Voices */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px; }
+  .vcard { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:var(--shadow); }
+  .vcard.selected { border-color:var(--text); }
+  .vrow { display:flex; align-items:center; gap:12px; }
+  .tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; background:var(--hover); color:var(--muted); margin-right:4px; }
+  .vactions { display:flex; gap:8px; }
+  .clone-card { border-style:dashed; justify-content:center; align-items:center; text-align:center; min-height:150px; cursor:pointer; background:none; }
+  .clone-card:hover { background:var(--hover); }
+
+  /* History */
+  .hist { display:flex; flex-direction:column; gap:10px; }
+  .hitem { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:center; }
+  .hitem .play { width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:none; display:grid; place-items:center; flex:none; }
+
+  /* Help */
+  .steps { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; }
+  .step { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .step b { display:block; margin-bottom:4px; }
+  .num { width:24px; height:24px; border-radius:50%; background:var(--accent); color:var(--accent-text); display:inline-grid; place-items:center; font-size:12px; font-weight:700; margin-bottom:8px; }
+  .flow { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; overflow:auto; white-space:pre; }
+
+  /* Player */
+  .player { position:fixed; left:232px; right:0; bottom:0; background:var(--panel); border-top:1px solid var(--border); padding:10px 28px; display:none; align-items:center; gap:16px; z-index:10; }
+  .player.show { display:flex; }
+  .player audio { flex:1; height:36px; }
+
+  /* Modal */
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:20; padding:16px; }
+  .modal-bg.show { display:flex; }
+  .modal { background:var(--panel); border:1px solid var(--border); border-radius:16px; width:100%; max-width:480px; padding:20px; max-height:90vh; overflow:auto; }
+  .modal h2 { margin:0 0 4px; font-size:18px; }
+  .field { margin-top:14px; }
+  .field label { display:block; font-weight:500; margin-bottom:4px; }
+  .field input[type=text], .field input[type=url], .field textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg); outline:none; }
+  .field input:focus, .field textarea:focus { border-color:var(--ring); }
+  .modal-foot { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+  .status { font-size:12px; margin-top:8px; color:var(--muted); }
   .status.ok { color:var(--ok); } .status.err { color:var(--err); }
-  audio { width:100%; margin-top:8px; }
-  details summary { cursor:pointer; color:var(--muted); font-size:13px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px 16px; }
-  footer { color:var(--muted); font-size:12px; text-align:center; margin-top:24px; }
+
+  .toast { position:fixed; top:16px; right:16px; background:var(--accent); color:var(--accent-text); padding:10px 14px; border-radius:10px; font-size:13px; z-index:30; display:none; max-width:360px; }
+  .toast.show { display:block; }
+  .spinner { width:14px; height:14px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; display:inline-block; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .empty { text-align:center; padding:48px 16px; color:var(--muted); border:1px dashed var(--border); border-radius:14px; }
+
+  .menu-btn { display:none; }
+  @media (max-width: 900px) {
+    .tts { grid-template-columns:1fr; }
+  }
+  @media (max-width: 720px) {
+    .app { grid-template-columns:1fr; }
+    .sidebar { position:fixed; inset:0 30% 0 0; z-index:15; transform:translateX(-100%); transition:transform .2s; }
+    .sidebar.open { transform:none; }
+    .menu-btn { display:inline-grid; place-items:center; border:1px solid var(--border); background:none; border-radius:8px; width:34px; height:34px; margin-right:10px; }
+    .topbar { padding:12px 16px; }
+    .view { padding:16px 16px 120px; }
+    .player { left:0; padding:10px 16px; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>Fish Studio</h1>
-  <p class="sub">Type a script, get speech in your cloned voice.</p>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="logo">F</div>Fish Studio</div>
+    <button class="nav active" data-view="tts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"/></svg>Text to Speech</button>
+    <button class="nav" data-view="voices">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M8 7v10M16 7v10M4 10v4M20 10v4"/></svg>Voices</button>
+    <button class="nav" data-view="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</button>
+    <button class="nav" data-view="help">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg>How it works</button>
+    <div class="spacer"></div>
+    <button class="conn" id="connBtn"><span class="dot" id="connDot"></span><span id="connText">Not connected</span><br><span class="small" style="color:var(--faint)">Click to set the backend link</span></button>
+    <div class="small" style="color:var(--faint); padding:10px 4px 0">Built with Fish Audio · Non-commercial use only</div>
+  </aside>
 
-  <section class="card">
-    <h2>1. Backend link</h2>
-    <label for="backend">Paste today's <code>https://….gradio.live</code> link from Kaggle</label>
-    <div class="row">
-      <input id="backend" type="url" placeholder="https://xxxxxxxx.gradio.live" style="flex:1">
-      <button id="connect" class="secondary">Connect</button>
-    </div>
-    <div id="connStatus" class="status">Not connected.</div>
-  </section>
-
-  <section class="card">
-    <h2>2. Your voice (saved in this browser)</h2>
-    <label for="refAudio">Reference clip (10–30 s of clear speech)</label>
-    <input id="refAudio" type="file" accept="audio/*">
-    <div id="refInfo" class="status">No clip saved.</div>
-    <label for="refText">Exact words spoken in the clip</label>
-    <input id="refText" type="text" placeholder="What the speaker says in the clip">
-  </section>
-
-  <section class="card">
-    <h2>3. Script</h2>
-    <textarea id="script" placeholder="Paste your script here…"></textarea>
-    <details>
-      <summary>Advanced settings</summary>
-      <div class="grid">
-        <div><label for="temperature">Temperature (0.7–1.0)</label><input id="temperature" type="text" value="0.8"></div>
-        <div><label for="topP">Top-P (0.7–0.95)</label><input id="topP" type="text" value="0.8"></div>
-        <div><label for="repPen">Repetition penalty (1–1.2)</label><input id="repPen" type="text" value="1.1"></div>
-        <div><label for="seed">Seed (0 = random)</label><input id="seed" type="text" value="0"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex; align-items:center">
+        <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+        <h1 id="viewTitle">Text to Speech</h1>
       </div>
-    </details>
-    <div class="row" style="margin-top:12px">
-      <button id="generate">Generate</button>
-    </div>
-    <div id="genStatus" class="status"></div>
-    <audio id="player" controls hidden></audio>
-    <div class="row"><a id="download" hidden download="fish-studio.wav">Download audio</a></div>
-  </section>
+      <span class="small muted" id="topHint"></span>
+    </header>
 
-  <footer>Built with Fish Audio · Non-commercial use only · Model: fishaudio/s2-pro</footer>
-</main>
+    <!-- Text to Speech -->
+    <section class="view active" id="view-tts">
+      <div class="tts">
+        <div class="editor">
+          <textarea id="script" placeholder="Start typing or paste your script here…&#10;&#10;Tip: write numbers and abbreviations the way they should be spoken."></textarea>
+          <div class="editor-foot">
+            <span class="small muted"><span id="charCount">0</span> characters</span>
+            <div style="display:flex; gap:8px; align-items:center">
+              <span class="small muted" id="genStatus"></span>
+              <button class="btn primary" id="generateBtn">Generate speech</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="side">
+          <div class="card">
+            <h3>Voice</h3>
+            <button class="voice-pick" id="voicePick">
+              <div class="avatar" id="pickAvatar">?</div>
+              <div class="grow">
+                <div class="ellipsis" style="font-weight:600" id="pickName">Choose a voice</div>
+                <div class="small muted ellipsis" id="pickDesc">Open the voice library</div>
+              </div>
+              <span class="muted">›</span>
+            </button>
+          </div>
+
+          <div class="card">
+            <h3>Settings</h3>
+            <div class="setting">
+              <div class="setting-head"><span>Expressiveness</span><span id="v-temperature">0.80</span></div>
+              <input type="range" id="temperature" min="0.7" max="1" step="0.01" value="0.8">
+              <div class="ends"><span>Steady</span><span>Lively</span></div>
+            </div>
+            <div class="setting">
+              <div class="setting-head"><span>Variety</span><span id="v-topP">0.80</span></div>
+              <input type="range" id="topP" min="0.7" max="0.95" step="0.01" value="0.8">
+              <div class="ends"><span>Predictable</span><span>Varied</span></div>
+            </div>
+            <div class="setting">
+              <div class="setting-head"><span>Avoid repetition</span><span id="v-repPen">1.10</span></div>
+              <input type="range" id="repPen" min="1" max="1.2" step="0.01" value="1.1">
+              <div class="ends"><span>Off</span><span>Strong</span></div>
+            </div>
+            <div class="setting">
+              <label class="setting-head" style="cursor:pointer"><span>Same result every time</span>
+                <input type="checkbox" id="fixedSeed"></label>
+              <div class="small muted">Turn on to get identical audio for identical text.</div>
+            </div>
+            <button class="btn sm" id="resetSettings" style="margin-top:14px">Reset to defaults</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Voices -->
+    <section class="view" id="view-voices">
+      <p class="muted" style="margin-top:0">Pick a ready-made voice, or clone your own from a short recording.</p>
+      <h3 class="small muted" style="text-transform:uppercase; letter-spacing:.04em">Your cloned voices</h3>
+      <div class="grid" id="myVoices"></div>
+      <h3 class="small muted" style="text-transform:uppercase; letter-spacing:.04em; margin-top:28px">Ready-made voices</h3>
+      <div class="grid" id="libVoices"></div>
+    </section>
+
+    <!-- History -->
+    <section class="view" id="view-history">
+      <div class="hist" id="historyList"></div>
+    </section>
+
+    <!-- Help -->
+    <section class="view" id="view-help">
+      <p class="muted" style="margin-top:0; max-width:720px">Fish Studio has two parts. This website is just the controls. The actual voice AI runs on a free GPU in your Kaggle notebook, and the two talk over the internet using the <code>gradio.live</code> link.</p>
+      <div class="flow">  You (this website on Vercel)
+        │  1. sends your script + chosen voice
+        ▼
+  gradio.live link  (a temporary tunnel, new every session)
+        │
+        ▼
+  Kaggle notebook (2 × T4 GPU)
+    • the s2-pro model reads your script
+    • listens to the voice's reference clip and copies the voice
+    • turns it into audio
+        │  2. sends the audio back
+        ▼
+  You hear it here and can download it</div>
+      <h3 style="margin-top:28px">Every time you want to use it</h3>
+      <div class="steps">
+        <div class="step"><span class="num">1</span><b>Start Kaggle</b><span class="muted">Open your notebook, check GPU T4 x2 and Internet are on, click Run All.</span></div>
+        <div class="step"><span class="num">2</span><b>Copy the link</b><span class="muted">After ~10 minutes the last cell prints <code>https://….gradio.live</code>.</span></div>
+        <div class="step"><span class="num">3</span><b>Connect</b><span class="muted">Click the status box at the bottom-left of this site and paste the link.</span></div>
+        <div class="step"><span class="num">4</span><b>Generate</b><span class="muted">Pick a voice, paste your script, click Generate. Stop the Kaggle session when done.</span></div>
+      </div>
+      <h3 style="margin-top:28px">Words you'll see</h3>
+      <div class="steps">
+        <div class="step"><b>Voice</b><span class="muted">A short recording (10–30 s) of someone speaking. The AI copies how that person sounds. There's no training — it happens instantly each time.</span></div>
+        <div class="step"><b>Cloned voice</b><span class="muted">Your own recording plus the exact words spoken in it. Saved only in this browser.</span></div>
+        <div class="step"><b>Expressiveness</b><span class="muted">Higher sounds more emotional and varied, lower sounds calmer and steadier.</span></div>
+        <div class="step"><b>Backend link</b><span class="muted">The address of your running Kaggle notebook. It changes every session, so you paste a new one each day.</span></div>
+      </div>
+      <p class="small muted" style="margin-top:28px">Ready-made voices come from LibriSpeech (CC BY 4.0, volunteer audiobook readers). Only clone voices you have permission to use. Built with Fish Audio — Fish Audio Research License, non-commercial use only.</p>
+    </section>
+  </div>
+</div>
+
+<div class="player" id="player">
+  <div class="small" style="max-width:30%"><div style="font-weight:600" class="ellipsis" id="playerTitle"></div><div class="muted ellipsis" id="playerSub"></div></div>
+  <audio id="audio" controls></audio>
+  <a class="btn sm" id="playerDownload" download>Download</a>
+</div>
+
+<!-- Connect modal -->
+<div class="modal-bg" id="connModal">
+  <div class="modal">
+    <h2>Connect to your Kaggle backend</h2>
+    <p class="muted small" style="margin:0">Paste the <code>https://….gradio.live</code> link printed by the last cell of your Kaggle notebook. It changes every session.</p>
+    <div class="field"><label for="backendUrl">Backend link</label>
+      <input id="backendUrl" type="url" placeholder="https://xxxxxxxxxxxx.gradio.live"></div>
+    <div class="status" id="connStatus"></div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="connectBtn">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Clone modal -->
+<div class="modal-bg" id="cloneModal">
+  <div class="modal">
+    <h2>Clone a voice</h2>
+    <p class="muted small" style="margin:0">Upload 10–30 seconds of one person speaking clearly, with no music or background noise. Only use voices you have permission to clone.</p>
+    <div class="field"><label for="cloneName">Voice name</label>
+      <input id="cloneName" type="text" placeholder="e.g. My narrator voice"></div>
+    <div class="field"><label for="cloneFile">Recording</label>
+      <input id="cloneFile" type="file" accept="audio/*"></div>
+    <div class="field"><label for="cloneText">Exact words spoken in the recording</label>
+      <textarea id="cloneText" rows="3" placeholder="Type exactly what is said. This makes the copy much more accurate."></textarea></div>
+    <div class="status" id="cloneStatus"></div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="cloneSave">Save voice</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script type="module">
 import { Client, handle_file } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.8.0/dist/index.min.js";
 
 const $ = (id) => document.getElementById(id);
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+const COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
+const DESCRIPTIONS = {
+  Adrian: "Warm, measured narrator",
+  Marcus: "Clear, conversational",
+  Theo: "Calm storyteller",
+  Daniel: "Steady, neutral reader",
+  Victor: "Deep, deliberate",
 };
 
-// The reference clip is kept in IndexedDB so it survives page reloads.
-function idb() {
-  return new Promise((res, rej) => {
-    const r = indexedDB.open("fish-studio", 1);
-    r.onupgradeneeded = () => r.result.createObjectStore("files");
+const ls = {
+  get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// IndexedDB holds things too big for localStorage: cloned voice clips and generated audio.
+let dbPromise;
+function db() {
+  dbPromise ??= new Promise((res, rej) => {
+    const r = indexedDB.open("fish-studio", 2);
+    r.onupgradeneeded = () => {
+      for (const s of ["clones", "history"]) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s, { keyPath: "id" });
+    };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   });
+  return dbPromise;
 }
-async function saveClip(file) {
-  try { const db = await idb(); db.transaction("files", "readwrite").objectStore("files").put(file, "ref"); } catch {}
-}
-async function loadClip() {
+async function dbAll(store) {
   try {
-    const db = await idb();
-    return await new Promise((res) => {
-      const q = db.transaction("files").objectStore("files").get("ref");
-      q.onsuccess = () => res(q.result || null);
-      q.onerror = () => res(null);
-    });
-  } catch { return null; }
+    const d = await db();
+    return await new Promise((res) => { const q = d.transaction(store).objectStore(store).getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); });
+  } catch { return []; }
 }
+async function dbPut(store, v) { try { (await db()).transaction(store, "readwrite").objectStore(store).put(v); } catch {} }
+async function dbDel(store, id) { try { (await db()).transaction(store, "readwrite").objectStore(store).delete(id); } catch {} }
 
-let client = null;
-let clip = null;
+const state = {
+  client: null,
+  library: [],
+  clones: [],
+  selected: ls.get("selectedVoice"), // { kind: "lib"|"clone", id }
+};
 
-function setStatus(el, msg, kind = "") { el.textContent = msg; el.className = "status " + kind; }
+function toast(msg, ms = 3500) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), ms);
+}
+function color(name) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
+function avatar(el, name) { el.textContent = name[0]?.toUpperCase() || "?"; el.style.background = color(name); }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
 
-async function connect() {
-  const url = $("backend").value.trim().replace(/\/+$/, "");
-  if (!url) return setStatus($("connStatus"), "Paste the link first.", "err");
-  store.set("backend", url);
-  setStatus($("connStatus"), "Connecting…");
+/* ---------- Navigation ---------- */
+const TITLES = { tts: "Text to Speech", voices: "Voices", history: "History", help: "How it works" };
+function show(view) {
+  document.querySelectorAll(".nav").forEach((n) => n.classList.toggle("active", n.dataset.view === view));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + view));
+  $("viewTitle").textContent = TITLES[view];
+  $("sidebar").classList.remove("open");
+  if (view === "history") renderHistory();
+  if (view === "voices") renderVoices();
+}
+document.querySelectorAll(".nav").forEach((n) => (n.onclick = () => show(n.dataset.view)));
+$("menuBtn").onclick = () => $("sidebar").classList.toggle("open");
+
+/* ---------- Modals ---------- */
+function openModal(id) { $(id).classList.add("show"); }
+document.querySelectorAll(".modal-bg").forEach((m) => {
+  m.addEventListener("click", (e) => { if (e.target === m || e.target.hasAttribute("data-close")) m.classList.remove("show"); });
+});
+
+/* ---------- Connection ---------- */
+function setConn(kind, text) { $("connDot").className = "dot " + kind; $("connText").textContent = text; }
+
+async function connect(url, quiet = false) {
+  url = (url || "").trim().replace(/\/+$/, "");
+  if (!url) return false;
+  ls.set("backend", url);
+  setConn("wait", "Connecting…");
+  $("connStatus").className = "status"; $("connStatus").textContent = "Connecting…";
   try {
-    client = await Client.connect(url);
-    setStatus($("connStatus"), "Connected.", "ok");
-  } catch (e) {
-    client = null;
-    setStatus($("connStatus"), "Could not connect. Is the Kaggle notebook running and the link current?", "err");
+    state.client = await Client.connect(url);
+    setConn("ok", "Connected");
+    $("connStatus").className = "status ok"; $("connStatus").textContent = "Connected.";
+    await loadLibrary();
+    return true;
+  } catch {
+    state.client = null;
+    setConn("err", "Backend offline");
+    $("connStatus").className = "status err";
+    $("connStatus").textContent = "Couldn't connect. Is the Kaggle notebook still running, and is this today's link?";
+    if (!quiet) toast("Couldn't reach the backend. Start Kaggle and paste the new link.");
+    return false;
   }
 }
+$("connBtn").onclick = () => { $("backendUrl").value = ls.get("backend", ""); openModal("connModal"); };
+$("connectBtn").onclick = async () => { if (await connect($("backendUrl").value)) setTimeout(() => $("connModal").classList.remove("show"), 500); };
+
+/* ---------- Voices ---------- */
+async function loadLibrary() {
+  try {
+    const r = await state.client.predict("/voices", []);
+    state.library = Array.isArray(r.data[0]) ? r.data[0] : [];
+  } catch { state.library = []; }
+  if (!state.selected && state.library[0]) select({ kind: "lib", id: state.library[0].name });
+  renderVoices(); renderPick();
+}
+
+function allVoices() {
+  return [
+    ...state.clones.map((c) => ({ kind: "clone", id: c.id, name: c.name, desc: "Your cloned voice" })),
+    ...state.library.map((v) => ({ kind: "lib", id: v.name, name: v.name, desc: DESCRIPTIONS[v.name] || "Ready-made voice", meta: v })),
+  ];
+}
+function current() { const s = state.selected; return s && allVoices().find((v) => v.kind === s.kind && v.id === s.id); }
+function select(sel) { state.selected = sel; ls.set("selectedVoice", sel); renderPick(); renderVoices(); }
+
+function renderPick() {
+  const v = current();
+  if (v) { avatar($("pickAvatar"), v.name); $("pickName").textContent = v.name; $("pickDesc").textContent = v.desc; }
+  else { $("pickAvatar").textContent = "?"; $("pickAvatar").style.background = "var(--faint)"; $("pickName").textContent = "Choose a voice"; $("pickDesc").textContent = state.client ? "Open the voice library" : "Connect to load voices"; }
+}
+$("voicePick").onclick = () => show("voices");
+
+function voiceCard(v) {
+  const sel = state.selected && state.selected.kind === v.kind && state.selected.id === v.id;
+  const el = document.createElement("div");
+  el.className = "vcard" + (sel ? " selected" : "");
+  const tags = v.kind === "lib" ? `<span class="tag">Male</span><span class="tag">English</span>` : `<span class="tag">Cloned</span>`;
+  el.innerHTML = `
+    <div class="vrow"><div class="avatar"></div><div class="grow"><div style="font-weight:600">${esc(v.name)}</div><div class="small muted ellipsis">${esc(v.desc)}</div></div></div>
+    <div>${tags}</div>
+    <div class="vactions">
+      <button class="btn sm" data-a="preview">▶ Preview</button>
+      <button class="btn sm ${sel ? "" : "primary"}" data-a="use" style="${sel ? "" : "padding:5px 12px"}">${sel ? "Selected" : "Use voice"}</button>
+      ${v.kind === "clone" ? `<button class="btn sm" data-a="delete" title="Delete">Delete</button>` : ""}
+    </div>`;
+  avatar(el.querySelector(".avatar"), v.name);
+  el.querySelector('[data-a="use"]').onclick = () => { select({ kind: v.kind, id: v.id }); toast(`Voice set to ${v.name}`); show("tts"); };
+  el.querySelector('[data-a="preview"]').onclick = () => previewVoice(v);
+  const del = el.querySelector('[data-a="delete"]');
+  if (del) del.onclick = async () => {
+    if (!confirm(`Delete "${v.name}"?`)) return;
+    await dbDel("clones", v.id); state.clones = state.clones.filter((c) => c.id !== v.id);
+    if (state.selected?.id === v.id) select(null);
+    renderVoices();
+  };
+  return el;
+}
+
+function renderVoices() {
+  const mine = $("myVoices"); mine.innerHTML = "";
+  const add = document.createElement("button");
+  add.className = "vcard clone-card";
+  add.innerHTML = `<div style="font-size:24px">＋</div><div style="font-weight:600">Clone a voice</div><div class="small muted">From a 10–30 second recording</div>`;
+  add.onclick = () => { $("cloneStatus").textContent = ""; openModal("cloneModal"); };
+  mine.appendChild(add);
+  for (const v of allVoices().filter((v) => v.kind === "clone")) mine.appendChild(voiceCard(v));
+
+  const lib = $("libVoices"); lib.innerHTML = "";
+  const libVoices = allVoices().filter((v) => v.kind === "lib");
+  if (!libVoices.length) {
+    lib.innerHTML = `<div class="empty" style="grid-column:1/-1">${state.client ? "No ready-made voices on the backend. Run the voice setup cell in Kaggle, then reconnect." : "Connect to your Kaggle backend to load the ready-made voices."}</div>`;
+  }
+  for (const v of libVoices) lib.appendChild(voiceCard(v));
+}
+
+async function previewVoice(v) {
+  try {
+    if (v.kind === "clone") {
+      const c = state.clones.find((c) => c.id === v.id);
+      return playBlob(c.audio, v.name, "Original recording");
+    }
+    if (!state.client) return toast("Connect to the backend first.");
+    const r = await state.client.predict("/voice_sample", [v.id]);
+    const blob = await (await fetch(r.data[0].url)).blob();
+    playBlob(blob, v.name, "Reference recording");
+  } catch (e) { toast("Couldn't play preview: " + (e.message || e)); }
+}
+
+$("cloneSave").onclick = async () => {
+  const name = $("cloneName").value.trim();
+  const file = $("cloneFile").files[0];
+  const text = $("cloneText").value.trim();
+  const st = $("cloneStatus");
+  if (!name || !file) { st.className = "status err"; st.textContent = "Add a name and a recording."; return; }
+  if (!text) { st.className = "status err"; st.textContent = "Type the words spoken in the recording — it makes the clone far more accurate."; return; }
+  const clone = { id: "c" + Date.now(), name, text, audio: file, created: Date.now() };
+  await dbPut("clones", clone);
+  state.clones.unshift(clone);
+  $("cloneName").value = ""; $("cloneFile").value = ""; $("cloneText").value = "";
+  $("cloneModal").classList.remove("show");
+  select({ kind: "clone", id: clone.id });
+  toast(`Saved "${name}" and selected it.`);
+};
+
+/* ---------- Settings ---------- */
+const DEFAULTS = { temperature: 0.8, topP: 0.8, repPen: 1.1, fixedSeed: false };
+function loadSettings() {
+  const s = { ...DEFAULTS, ...ls.get("settings", {}) };
+  for (const k of ["temperature", "topP", "repPen"]) { $(k).value = s[k]; $("v-" + k).textContent = Number(s[k]).toFixed(2); }
+  $("fixedSeed").checked = s.fixedSeed;
+}
+function saveSettings() {
+  const s = { temperature: +$("temperature").value, topP: +$("topP").value, repPen: +$("repPen").value, fixedSeed: $("fixedSeed").checked };
+  for (const k of ["temperature", "topP", "repPen"]) $("v-" + k).textContent = s[k].toFixed(2);
+  ls.set("settings", s);
+  return s;
+}
+for (const k of ["temperature", "topP", "repPen", "fixedSeed"]) $(k).oninput = saveSettings;
+$("resetSettings").onclick = () => { ls.set("settings", DEFAULTS); loadSettings(); };
+
+/* ---------- Generate ---------- */
+$("script").value = ls.get("script", "");
+const updateCount = () => { $("charCount").textContent = $("script").value.length.toLocaleString(); };
+$("script").oninput = () => { ls.set("script", $("script").value); updateCount(); };
+updateCount();
 
 async function generate() {
   const text = $("script").value.trim();
-  if (!text) return setStatus($("genStatus"), "Write a script first.", "err");
-  if (!client) await connect();
-  if (!client) return;
-  $("generate").disabled = true;
-  setStatus($("genStatus"), "Generating… this can take a minute on the free GPU.");
+  if (!text) return toast("Type or paste a script first.");
+  if (!state.client) {
+    const ok = await connect(ls.get("backend", ""), true);
+    if (!ok) { $("backendUrl").value = ls.get("backend", ""); openModal("connModal"); return; }
+  }
+  const v = current();
+  if (!v) return toast("Pick a voice first."), show("voices");
+  const s = saveSettings();
+  const btn = $("generateBtn");
+  btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Generating…`;
+  $("genStatus").textContent = "This can take 10–60 s on the free GPU";
+  const started = Date.now();
   try {
-    const num = (id, d) => { const v = parseFloat($(id).value); return isNaN(v) ? d : v; };
-    const result = await client.predict("/generate", [
-      text,                              // text
-      "",                                // reference_id
-      clip ? handle_file(clip) : null,   // reference_audio
-      $("refText").value,                // reference_text
-      0,                                 // max_new_tokens
-      300,                               // chunk_length
-      num("topP", 0.8),
-      num("repPen", 1.1),
-      num("temperature", 0.8),
-      num("seed", 0),
-      "on",                              // use_memory_cache
+    let refId = "", refAudio = null, refText = "";
+    if (v.kind === "lib") refId = v.id;
+    else { const c = state.clones.find((c) => c.id === v.id); refAudio = handle_file(c.audio); refText = c.text; }
+    const r = await state.client.predict("/generate", [
+      text, refId, refAudio, refText,
+      0, 300, s.topP, s.repPen, s.temperature,
+      s.fixedSeed ? 42 : 0, "on",
     ]);
-    const [audio, error] = result.data;
-    if (!audio) {
-      const msg = error ? new DOMParser().parseFromString(error, "text/html").body.textContent : "No audio returned.";
-      throw new Error(msg);
-    }
+    const [audio, error] = r.data;
+    if (!audio) throw new Error(error ? new DOMParser().parseFromString(error, "text/html").body.textContent.trim() : "No audio returned");
     const blob = await (await fetch(audio.url)).blob();
-    const objUrl = URL.createObjectURL(blob);
-    $("player").src = objUrl; $("player").hidden = false; $("player").play().catch(() => {});
-    $("download").href = objUrl; $("download").hidden = false;
-    setStatus($("genStatus"), "Done.", "ok");
+    const item = { id: "h" + Date.now(), text, voice: v.name, audio: blob, created: Date.now(), seconds: Math.round((Date.now() - started) / 1000) };
+    await dbPut("history", item);
+    playBlob(blob, v.name, text.slice(0, 80));
+    $("genStatus").textContent = `Done in ${item.seconds}s`;
   } catch (e) {
-    setStatus($("genStatus"), "Failed: " + (e.message || e), "err");
+    const msg = e?.message || String(e);
+    $("genStatus").textContent = "";
+    if (/fetch|network|connect|404|502/i.test(msg)) { setConn("err", "Backend offline"); state.client = null; toast("Lost connection to Kaggle. Is the notebook still running?"); }
+    else toast("Generation failed: " + msg, 6000);
   } finally {
-    $("generate").disabled = false;
+    btn.disabled = false; btn.textContent = "Generate speech";
+  }
+}
+$("generateBtn").onclick = generate;
+$("script").addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") generate(); });
+
+/* ---------- Player & history ---------- */
+let currentUrl;
+function playBlob(blob, title, sub) {
+  if (currentUrl) URL.revokeObjectURL(currentUrl);
+  currentUrl = URL.createObjectURL(blob);
+  $("audio").src = currentUrl; $("audio").play().catch(() => {});
+  $("playerTitle").textContent = title; $("playerSub").textContent = sub;
+  $("playerDownload").href = currentUrl;
+  $("playerDownload").download = `${title.replace(/\W+/g, "-").toLowerCase()}-${Date.now()}.wav`;
+  $("player").classList.add("show");
+}
+
+async function renderHistory() {
+  const list = $("historyList");
+  const items = (await dbAll("history")).sort((a, b) => b.created - a.created);
+  list.innerHTML = items.length ? "" : `<div class="empty">Nothing yet. Generated audio is saved here in your browser.</div>`;
+  for (const it of items) {
+    const el = document.createElement("div");
+    el.className = "hitem";
+    el.innerHTML = `<button class="play" title="Play">▶</button>
+      <div class="grow"><div class="ellipsis">${esc(it.text)}</div>
+      <div class="small muted">${esc(it.voice)} · ${new Date(it.created).toLocaleString()}</div></div>
+      <button class="btn sm" data-a="dl">Download</button><button class="btn sm" data-a="del">Delete</button>`;
+    el.querySelector(".play").onclick = () => playBlob(it.audio, it.voice, it.text.slice(0, 80));
+    el.querySelector('[data-a="dl"]').onclick = () => {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(it.audio); a.download = `${it.voice}-${it.created}.wav`; a.click();
+    };
+    el.querySelector('[data-a="del"]').onclick = async () => { await dbDel("history", it.id); renderHistory(); };
+    list.appendChild(el);
   }
 }
 
-$("connect").onclick = connect;
-$("generate").onclick = generate;
-$("refAudio").onchange = async (e) => {
-  const f = e.target.files[0];
-  if (!f) return;
-  clip = f; await saveClip(f);
-  setStatus($("refInfo"), "Saved: " + f.name, "ok");
-};
-for (const id of ["refText", "script"]) {
-  $(id).value = store.get(id) || "";
-  $(id).oninput = () => store.set(id, $(id).value);
-}
-$("backend").value = store.get("backend") || "";
-loadClip().then((f) => { if (f) { clip = f; setStatus($("refInfo"), "Saved: " + (f.name || "reference clip"), "ok"); } });
+/* ---------- Start ---------- */
+loadSettings();
+state.clones = (await dbAll("clones")).sort((a, b) => b.created - a.created);
+renderVoices(); renderPick();
+const saved = ls.get("backend", "");
+if (saved) connect(saved, true); else setConn("", "Not connected");
 </script>
 </body>
 </html>

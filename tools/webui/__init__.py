@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Callable
 
 import gradio as gr
@@ -153,4 +155,33 @@ def build_app(inference_fct: Callable, theme: str = "light") -> gr.Blocks:
             api_name="generate",
         )
 
+        # Endpoints for external frontends (see web/index.html): list the
+        # ready-made voices in ./references and serve a preview clip of each.
+        voices_json = gr.JSON(visible=False)
+        voice_name = gr.Textbox(visible=False)
+        voice_audio = gr.Audio(type="filepath", visible=False)
+        gr.Button(visible=False).click(
+            list_voices, None, voices_json, api_name="voices"
+        )
+        gr.Button(visible=False).click(
+            voice_sample, voice_name, voice_audio, api_name="voice_sample"
+        )
+
     return app
+
+
+def list_voices() -> list:
+    index = Path("references") / "voices.json"
+    if index.exists():
+        return json.loads(index.read_text())
+    return [
+        {"name": p.name}
+        for p in sorted(Path("references").glob("*"))
+        if p.is_dir() and any(p.glob("*.wav"))
+    ]
+
+
+def voice_sample(name: str):
+    folder = Path("references") / Path(name).name
+    clips = sorted(folder.glob("*.wav"))
+    return str(clips[0]) if clips else None

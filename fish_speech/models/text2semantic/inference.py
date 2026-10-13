@@ -803,6 +803,9 @@ def launch_thread_safe_queue(
                 break
 
             kwargs = item.request
+            # Always generate on the LLM's own device, even when the audio
+            # decoder (whose device the engine passes in) lives on another GPU
+            kwargs["device"] = device
             response_queue = item.response_queue
 
             try:
