@@ -772,6 +772,7 @@ def launch_thread_safe_queue(
     device,
     precision,
     compile: bool = False,
+    max_seq_len: int | None = None,
 ):
     input_queue = queue.Queue()
     init_event = threading.Event()
@@ -780,6 +781,9 @@ def launch_thread_safe_queue(
         model, decode_one_token = init_model(
             checkpoint_path, device, precision, compile=compile
         )
+        if max_seq_len:
+            # A smaller KV cache lets the model fit on 16 GB GPUs (e.g. T4)
+            model.config.max_seq_len = min(max_seq_len, model.config.max_seq_len)
         with torch.device(device):
             model.setup_caches(
                 max_batch_size=1,
