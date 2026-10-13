@@ -21,4 +21,9 @@ if ! pip install -q -r /tmp/fish_reqs.txt; then
 fi
 pip install -q --no-deps -e .
 
-python -c "import pyrootutils, gradio, torch, fish_speech; print('INSTALL OK, torch', torch.__version__, 'cuda', torch.cuda.is_available())"
+# Pin packages that clash with the notebook's pre-installed ones:
+# torchvision must match torch 2.8, transformers needs huggingface_hub<1.0,
+# fish-speech's protobuf code needs >=3.20, and the web UI targets Gradio 5.
+pip install -q "torchvision==0.23.0" "huggingface_hub>=0.34,<1.0" "protobuf>=3.20,<6" "gradio==5.45.0"
+
+python -c "import pyrootutils, gradio, torch, torchvision, pytorch_lightning, transformers, fish_speech.inference_engine; print('INSTALL OK, torch', torch.__version__, 'cuda', torch.cuda.is_available())"
