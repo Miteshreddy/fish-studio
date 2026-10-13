@@ -380,8 +380,10 @@ def generate(
     return seq
 
 
-def init_model(checkpoint_path, device, precision, compile=False):
-    model = DualARTransformer.from_pretrained(checkpoint_path, load_weights=True)
+def init_model(checkpoint_path, device, precision, compile=False, max_seq_len=None):
+    model = DualARTransformer.from_pretrained(
+        checkpoint_path, load_weights=True, max_length=max_seq_len
+    )
 
     model = model.to(device=device, dtype=precision)
     logger.info(f"Restored model from checkpoint")
@@ -779,11 +781,14 @@ def launch_thread_safe_queue(
 
     def worker():
         model, decode_one_token = init_model(
-            checkpoint_path, device, precision, compile=compile
+            checkpoint_path,
+            device,
+            precision,
+            compile=compile,
+            # A shorter context shrinks the KV cache and causal mask so the
+            # model fits on 16 GB GPUs (e.g. T4)
+            max_seq_len=max_seq_len,
         )
-        if max_seq_len:
-            # A smaller KV cache lets the model fit on 16 GB GPUs (e.g. T4)
-            model.config.max_seq_len = min(max_seq_len, model.config.max_seq_len)
         with torch.device(device):
             model.setup_caches(
                 max_batch_size=1,
