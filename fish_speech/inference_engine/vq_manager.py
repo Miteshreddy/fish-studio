@@ -17,6 +17,8 @@ class VQManager:
         logger.info(f"VQ features: {codes.shape}")
 
         if isinstance(self.decoder_model, DAC):
+            # The decoder may live on a different GPU than the LLM
+            codes = codes.to(self.decoder_model.device)
             return self.decoder_model.from_indices(codes[None])[0].squeeze()
 
         raise ValueError(f"Unknown model type: {type(self.decoder_model)}")
