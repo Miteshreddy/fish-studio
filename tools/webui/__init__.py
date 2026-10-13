@@ -150,6 +150,7 @@ def build_app(inference_fct: Callable, theme: str = "light") -> gr.Blocks:
             ],
             [audio, error],
             concurrency_limit=1,
+            api_name="generate",
         )
 
     return app

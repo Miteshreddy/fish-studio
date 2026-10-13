@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fish Studio</title>
+<style>
+  :root { --bg:#f7f7f8; --card:#fff; --text:#18181b; --muted:#71717a; --border:#e4e4e7; --accent:#2563eb; --err:#dc2626; --ok:#16a34a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0b0b0d; --card:#17171a; --text:#f4f4f5; --muted:#a1a1aa; --border:#2a2a30; --accent:#60a5fa; --err:#f87171; --ok:#4ade80; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin:0 0 10px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input[type=text], input[type=url], textarea { width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  textarea { min-height:160px; resize:vertical; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button { padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  button.secondary { background:transparent; color:var(--text); border:1px solid var(--border); font-weight:500; }
+  button:disabled { opacity:.5; cursor:default; }
+  .status { font-size:13px; margin-top:8px; color:var(--muted); }
+  .status.ok { color:var(--ok); } .status.err { color:var(--err); }
+  audio { width:100%; margin-top:8px; }
+  details summary { cursor:pointer; color:var(--muted); font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px 16px; }
+  footer { color:var(--muted); font-size:12px; text-align:center; margin-top:24px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fish Studio</h1>
+  <p class="sub">Type a script, get speech in your cloned voice.</p>
+
+  <section class="card">
+    <h2>1. Backend link</h2>
+    <label for="backend">Paste today's <code>https://….gradio.live</code> link from Kaggle</label>
+    <div class="row">
+      <input id="backend" type="url" placeholder="https://xxxxxxxx.gradio.live" style="flex:1">
+      <button id="connect" class="secondary">Connect</button>
+    </div>
+    <div id="connStatus" class="status">Not connected.</div>
+  </section>
+
+  <section class="card">
+    <h2>2. Your voice (saved in this browser)</h2>
+    <label for="refAudio">Reference clip (10–30 s of clear speech)</label>
+    <input id="refAudio" type="file" accept="audio/*">
+    <div id="refInfo" class="status">No clip saved.</div>
+    <label for="refText">Exact words spoken in the clip</label>
+    <input id="refText" type="text" placeholder="What the speaker says in the clip">
+  </section>
+
+  <section class="card">
+    <h2>3. Script</h2>
+    <textarea id="script" placeholder="Paste your script here…"></textarea>
+    <details>
+      <summary>Advanced settings</summary>
+      <div class="grid">
+        <div><label for="temperature">Temperature (0.7–1.0)</label><input id="temperature" type="text" value="0.8"></div>
+        <div><label for="topP">Top-P (0.7–0.95)</label><input id="topP" type="text" value="0.8"></div>
+        <div><label for="repPen">Repetition penalty (1–1.2)</label><input id="repPen" type="text" value="1.1"></div>
+        <div><label for="seed">Seed (0 = random)</label><input id="seed" type="text" value="0"></div>
+      </div>
+    </details>
+    <div class="row" style="margin-top:12px">
+      <button id="generate">Generate</button>
+    </div>
+    <div id="genStatus" class="status"></div>
+    <audio id="player" controls hidden></audio>
+    <div class="row"><a id="download" hidden download="fish-studio.wav">Download audio</a></div>
+  </section>
+
+  <footer>Built with Fish Audio · Non-commercial use only · Model: fishaudio/s2-pro</footer>
+</main>
+
+<script type="module">
+import { Client, handle_file } from "https://cdn.jsdelivr.net/npm/@gradio/client@1.8.0/dist/index.min.js";
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+// The reference clip is kept in IndexedDB so it survives page reloads.
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("fish-studio", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("files");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function saveClip(file) {
+  try { const db = await idb(); db.transaction("files", "readwrite").objectStore("files").put(file, "ref"); } catch {}
+}
+async function loadClip() {
+  try {
+    const db = await idb();
+    return await new Promise((res) => {
+      const q = db.transaction("files").objectStore("files").get("ref");
+      q.onsuccess = () => res(q.result || null);
+      q.onerror = () => res(null);
+    });
+  } catch { return null; }
+}
+
+let client = null;
+let clip = null;
+
+function setStatus(el, msg, kind = "") { el.textContent = msg; el.className = "status " + kind; }
+
+async function connect() {
+  const url = $("backend").value.trim().replace(/\/+$/, "");
+  if (!url) return setStatus($("connStatus"), "Paste the link first.", "err");
+  store.set("backend", url);
+  setStatus($("connStatus"), "Connecting…");
+  try {
+    client = await Client.connect(url);
+    setStatus($("connStatus"), "Connected.", "ok");
+  } catch (e) {
+    client = null;
+    setStatus($("connStatus"), "Could not connect. Is the Kaggle notebook running and the link current?", "err");
+  }
+}
+
+async function generate() {
+  const text = $("script").value.trim();
+  if (!text) return setStatus($("genStatus"), "Write a script first.", "err");
+  if (!client) await connect();
+  if (!client) return;
+  $("generate").disabled = true;
+  setStatus($("genStatus"), "Generating… this can take a minute on the free GPU.");
+  try {
+    const num = (id, d) => { const v = parseFloat($(id).value); return isNaN(v) ? d : v; };
+    const result = await client.predict("/generate", [
+      text,                              // text
+      "",                                // reference_id
+      clip ? handle_file(clip) : null,   // reference_audio
+      $("refText").value,                // reference_text
+      0,                                 // max_new_tokens
+      300,                               // chunk_length
+      num("topP", 0.8),
+      num("repPen", 1.1),
+      num("temperature", 0.8),
+      num("seed", 0),
+      "on",                              // use_memory_cache
+    ]);
+    const [audio, error] = result.data;
+    if (!audio) {
+      const msg = error ? new DOMParser().parseFromString(error, "text/html").body.textContent : "No audio returned.";
+      throw new Error(msg);
+    }
+    const blob = await (await fetch(audio.url)).blob();
+    const objUrl = URL.createObjectURL(blob);
+    $("player").src = objUrl; $("player").hidden = false; $("player").play().catch(() => {});
+    $("download").href = objUrl; $("download").hidden = false;
+    setStatus($("genStatus"), "Done.", "ok");
+  } catch (e) {
+    setStatus($("genStatus"), "Failed: " + (e.message || e), "err");
+  } finally {
+    $("generate").disabled = false;
+  }
+}
+
+$("connect").onclick = connect;
+$("generate").onclick = generate;
+$("refAudio").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  clip = f; await saveClip(f);
+  setStatus($("refInfo"), "Saved: " + f.name, "ok");
+};
+for (const id of ["refText", "script"]) {
+  $(id).value = store.get(id) || "";
+  $(id).oninput = () => store.set(id, $(id).value);
+}
+$("backend").value = store.get("backend") || "";
+loadClip().then((f) => { if (f) { clip = f; setStatus($("refInfo"), "Saved: " + (f.name || "reference clip"), "ok"); } });
+</script>
+</body>
+</html>
