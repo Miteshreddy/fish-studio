@@ -12,7 +12,7 @@ from fish_speech.inference_engine import TTSInferenceEngine
 from fish_speech.models.dac.inference import load_model as load_decoder_model
 from fish_speech.models.text2semantic.inference import launch_thread_safe_queue
 from fish_speech.utils.schema import ServeTTSRequest
-from tools.webui import build_app
+from tools.webui import build_app, mount_studio
 from tools.webui.inference import get_inference_wrapper
 
 # Make einx happy
@@ -117,4 +117,9 @@ if __name__ == "__main__":
     inference_fct = get_inference_wrapper(inference_engine)
 
     app = build_app(inference_fct, args.theme)
-    app.launch()
+    app.launch(prevent_thread_lock=True)
+    mount_studio(app)
+    if app.share_url:
+        logger.info(f"Fish Studio website: {app.share_url.rstrip('/')}/studio")
+    logger.info(f"Fish Studio website (local): {app.local_url.rstrip('/')}/studio")
+    app.block_thread()

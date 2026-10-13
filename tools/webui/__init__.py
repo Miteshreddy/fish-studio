@@ -185,3 +185,18 @@ def voice_sample(name: str):
     folder = Path("references") / Path(name).name
     clips = sorted(folder.glob("*.wav"))
     return str(clips[0]) if clips else None
+
+
+def mount_studio(app: gr.Blocks) -> None:
+    """Serve the Fish Studio frontend (web/index.html) at /studio on the
+    running Gradio server, so the share link doubles as the website."""
+    from fastapi.responses import FileResponse
+    from starlette.routing import Route
+
+    page = Path(__file__).resolve().parents[2] / "web" / "index.html"
+
+    async def studio(request):
+        return FileResponse(page, headers={"Cache-Control": "no-store"})
+
+    # Insert ahead of Gradio's own routes so nothing shadows it
+    app.server_app.router.routes.insert(0, Route("/studio", studio))

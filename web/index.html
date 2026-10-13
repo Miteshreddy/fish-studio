@@ -607,7 +607,10 @@ async function renderHistory() {
 loadSettings();
 state.clones = (await dbAll("clones")).sort((a, b) => b.created - a.created);
 renderVoices(); renderPick();
-const saved = ls.get("backend", "");
+// Opened from the Kaggle link itself (https://….gradio.live/studio)? Then the
+// backend is this same server, so connect to it without asking.
+const sameOrigin = /\/studio\/?$/.test(location.pathname) ? location.origin + location.pathname.replace(/\/studio\/?$/, "") : "";
+const saved = sameOrigin || ls.get("backend", "");
 if (saved) connect(saved, true); else setConn("", "Not connected");
 </script>
 </body>
